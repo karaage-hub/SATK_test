@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BPSK復調器 — 設計インプット（簡略版）</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef3f6;color:#203448;font:16px/1.85 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}header{background:#123149;color:white;padding:40px max(24px,calc((100vw - 1000px)/2))}header small{color:#9edbdd;letter-spacing:.12em}h1{font-size:32px;line-height:1.4;margin:12px 0}header p{color:#d5e5ee;margin:8px 0}main{max-width:1050px;margin:auto;padding:24px}section{background:white;border:1px solid #d5e0e7;border-radius:10px;padding:25px 30px;margin-bottom:20px}h2{font-size:22px;margin:0 0 16px}p{margin:10px 0}.flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;margin:18px 0}.node{flex:1;min-width:150px;border:1px solid #c0d2de;background:#eff5f8;border-radius:6px;padding:16px}.node strong{display:block}.node small{display:block;color:#526c7d}.core{background:#e3f3f2;border:2px solid #258c91}.arrow{align-self:center;font-size:24px;color:#26828a}.note{background:#edf6f6;border-left:4px solid #258c91;padding:14px 18px}.table{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:15px}th,td{border:1px solid #d5e0e7;padding:12px;text-align:left;vertical-align:top}th{background:#eff5f8}li{margin:6px 0}a{color:#076e92}.small,footer{font-size:13px;color:#597080}footer{text-align:center;padding:10px}@media(max-width:650px){main{padding:14px}section{padding:20px 16px}h1{font-size:27px}th,td{min-width:100px}}@media print{body{background:white;font-size:11pt}header{background:white;color:#123149;padding:12px 0;border-bottom:2px solid #123149}header p,header small{color:#597080}main{padding:0}section{border:0;padding:18px 0;margin:0}tr,.note{break-inside:avoid}h2{break-after:avoid}.table{overflow:visible}}
+</style>
+</head>
+<body>
+<header><small>MATLAB / SIMULINK AGENTIC TOOLKIT · DESIGN INPUT</small><h1>BPSK復調器の設計インプット</h1><p>アーキテクチャと基本要求 ― 簡略版</p><p>Draft v0.3 · 2026-11-22 · 数値は試行用の仮設定</p></header>
+<main>
+<section><h2>1. 試行の目的</h2>
+<p>MATLAB Agentic ToolkitとSimulink Agentic Toolkitを使い、単純なBPSK復調器の設計・検証・再利用可能な資産化を試す。まずMATLABでアルゴリズムを検討し、その後Simulinkで周辺機能と接続して確認する。</p>
+<p>システム設計の結果として、固定プリアンブルを先頭に持つフレーム形式が要求されているものとする。受信信号は、このフレームを連続送信するBPSK信号とする。変調方式、公称ビットレート、フレーム形式は既知とし、データ部の内容は未知とする。</p></section>
+<section><h2>2. システムアーキテクチャ</h2>
+<p>ADCで実数のIF信号をサンプリングし、デジタルフロントエンドのDDCで複素ベースバンドIQへ変換する。今回の主な設計対象は、その後段のBPSK復調部とする。</p>
+<div class="flow" role="img" aria-label="実数IF信号、ADC 1 MS/s、DDC 複素IQ 80 ksample/s、BPSK復調部、硬判定ビット10 kbit/sの順に接続">
+<div class="node"><strong>ADC</strong><small>実数IFを標本化</small>1 MS/s</div><span class="arrow">→</span>
+<div class="node"><strong>DDC</strong><small>周波数変換・帯域制限<br>サンプルレート変換</small>複素IQ：80 ksample/s</div><span class="arrow">→</span>
+<div class="node core"><strong>BPSK復調部</strong><small>搬送波・タイミング同期<br>硬判定・フレーム同期<br>ビット極性補正</small>今回の設計対象</div><span class="arrow">→</span>
+<div class="node"><strong>ビット出力</strong><small>極性補正済みの0 / 1</small>10 kbit/s</div>
+</div>
+<div class="table"><table><thead><tr><th>機能</th><th>役割・仮設定</th></tr></thead><tbody>
+<tr><td>ADC（前段）</td><td>中心周波数200 kHzの実数IF信号を、1 MS/s・12 bitで標本化する。アナログ側の帯域制限は実施済みとする。</td></tr>
+<tr><td>DDC（前段）</td><td>200 kHzを中心にベースバンドへ周波数変換し、低域通過フィルタとレート変換で80 ksample/sの複素IQを出力する。レート比は2/25。設計試行では浮動小数点IQとして復調部へ渡す。</td></tr>
+<tr><td>BPSK復調部</td><td>DDC出力から残留する搬送波の周波数・位相ずれとシンボルタイミングを推定・補償し、各シンボルを0または1へ硬判定する。さらにプリアンブルを検出し、フレーム先頭の識別とビット極性の補正を行う。</td></tr>
+<tr><td>後段</td><td>プリアンブルを含む公称10 kbit/sの極性補正済みビット列とフレーム先頭信号を受け取り、データ部を取り出して記録・評価する。誤り訂正は行わない。</td></tr>
+</tbody></table></div>
+<p class="small">BPSKは1 symbolあたり1 bitのため、10 kbit/s＝10 ksymbol/s。復調部入力は公称8 sample/symbolとなる。ADC・DDCは初回試行では周辺モデルとして扱い、ハードウェア実装の最適化は対象外とする。</p>
+</section>
+<section><h2>3. システムから要求されるフレーム形式</h2>
+<p>上位のシステム仕様として、次の固定長フレームを採用する。追加する制御用フィールドはプリアンブルのみとし、ヘッダ、長さ情報、CRCは設けない。</p>
+<div class="flow" role="img" aria-label="1フレームは32 bitのプリアンブルと256 bitのデータ部からなる"><div class="node core"><strong>プリアンブル：32 bit</strong>0x1ACFFC1D（固定）</div><span class="arrow">→</span><div class="node"><strong>データ部：256 bit</strong>任意のデータ</div></div>
+<div class="table"><table><thead><tr><th>項目</th><th>仕様</th></tr></thead><tbody>
+<tr><td>送信順序</td><td>プリアンブル → データ部。プリアンブルはMSBから送信する：<br><code>00011010 11001111 11111100 00011101</code></td></tr>
+<tr><td>フレーム長</td><td>288 bit固定。フレーム間の空白は設けず連続送信する。</td></tr>
+<tr><td>ビットレート</td><td>プリアンブル込みで10 kbit/s。1フレームは28.8 ms、データ部の実効レートは約8.89 kbit/s。</td></tr>
+<tr><td>BPSKの割当て</td><td>ビット0を+1、ビット1を−1に対応付ける。</td></tr>
+</tbody></table></div>
+<p>復調部は、プリアンブルの正規パターンと全ビット反転パターンを探索する。反転パターンを検出した場合は、そのフレーム全体のビット極性を反転して出力する。フレーム同期後は288 bit間隔のプリアンブル位置を確認する。検出閾値や同期の取得・解除条件はアルゴリズム設計時に決める。</p>
+<p class="small">プリアンブルはフレーム先頭と極性の識別に用いる。搬送波・タイミング同期が32 bit以内に完了することは要求せず、起動時は同期が成立するまでのフレームを出力対象外としてよい。</p>
+</section>
+<section><h2>4. 復調部のインターフェース</h2>
+<div class="table"><table><thead><tr><th>方向</th><th>信号</th><th>仕様</th></tr></thead><tbody>
+<tr><td>入力</td><td>受信IQ</td><td>DDCからの複素ベースバンド信号。80 ksample/s、浮動小数点。</td></tr>
+<tr><td>入力</td><td>リセット</td><td>内部状態を初期化し、同期の取り直しを開始する。</td></tr>
+<tr><td>出力</td><td>硬判定ビット</td><td>極性補正済みの0または1。プリアンブルを含むフレーム全体を、公称10 kbit/sで出力する。</td></tr>
+<tr><td>出力</td><td>ビット有効信号</td><td>出力ビットを後段が取り込めるタイミングを示す。搬送波・タイミング・フレーム同期または極性が未確定の間は無効とする。</td></tr>
+<tr><td>出力</td><td>フレーム先頭信号</td><td>有効な出力フレームの最初のプリアンブルbitと同時に通知する。</td></tr>
+</tbody></table></div>
+<p>プリアンブルを含めて出力できるよう、検出・極性補正に必要な分のビットを保持してから出力する。プリアンブルの受信判定値を既知値で置き換えることはしない。</p>
+<p>配列サイズ、処理チャンク長、同期方式、ループ係数などの詳細は、アルゴリズム設計時に決める。10 kbit/sは有効なビット列の公称レートを示し、ソフトウェアの呼出周期は規定しない。</p>
+</section>
+<section><h2>5. 基本要求</h2>
+<div class="table"><table><thead><tr><th>ID</th><th>要求</th></tr></thead><tbody>
+<tr><td>R-01</td><td>システムで定めた32 bitプリアンブル＋256 bitデータの連続BPSKフレームを復調し、フレーム先頭を識別する。</td></tr>
+<tr><td>R-02</td><td>80 ksample/sの複素IQを入力し、プリアンブル込みで公称10 kbit/sの極性補正済み硬判定ビットを出力する。</td></tr>
+<tr><td>R-03</td><td>搬送波の初期位相とシンボルタイミングが未知でも同期する。DDC後の残留周波数ずれは±100 Hzを初期評価範囲とする。</td></tr>
+<tr><td>R-04</td><td>雑音のない条件で、同期後の10万bitに誤りがないことを確認する。初期位相がπ異なる場合も、プリアンブルによる極性補正後は送信ビットと一致すること。</td></tr>
+<tr><td>R-05</td><td>AWGN条件で、E<sub>b</sub>/N<sub>0</sub>=6 dBにおける同期・極性補正後のデータ部のBERを5×10<sup>−3</sup>以下とすることを初期目標とする。評価にはデータ部100万bit以上を使用する。</td></tr>
+<tr><td>R-06</td><td>リセット後に再び同期・復調できる。MATLABとSimulinkで同じ入力条件を使い、復調結果の整合を確認できる。</td></tr>
+</tbody></table></div>
+<div class="note"><strong>システム仕様を利用した位相曖昧性の解消</strong><br>BPSKの0/π位相曖昧性は、システムから要求されたプリアンブルを利用して解消する。出力で全体反転を許容せず、受信側の極性補正結果を評価する。評価器が送信真値を使ってビット反転を補正することは禁止する。フレーム途中の位相スリップは誤りとして記録し、CRCによる検出は保証しない。</div>
+</section>
+<section><h2>6. 最初の検証と成果物</h2>
+<p>試験信号は、固定プリアンブルとランダムな256 bitデータ部で構成する。送信パルスはRRC、ロールオフは0.35を仮設定とし、復調側でも対応する整合フィルタを用いる。復調部には既知のプリアンブルとフレーム長を設定する。データ部の送信真値は評価器だけが参照し、復調部には与えない。</p>
+<ol><li><strong>無雑音で動作確認：</strong>位相・タイミング・周波数ずれを与えて同期と硬判定を確認する。特に0/πの両極性で、フレーム先頭と補正後のビットが一致することを確認する。</li><li><strong>雑音下で性能確認：</strong>AWGNを加えてBERを測定する。捕捉に要した時間、プリアンブルの誤検出・未検出、フレーム欠落、極性補正の誤りも記録し、受信成功フレームのBERだけで評価を完結させない。データ中にプリアンブルと同じ列が現れるケースも確認する。</li><li><strong>モデル化と再利用確認：</strong>MATLABとSimulinkの結果を比較し、ADC・DDCを含むハーネスから再実行できるようにする。</li></ol>
+<p>成果物は、<strong>MATLAB参照実装、Simulink復調モデル、ADC・DDCを含む試験ハーネス、共通パラメータ、試験結果、再実行手順</strong>とする。固定小数点化、コード生成、実機でのリアルタイム動作は次の段階で検討する。</p>
+<p class="small">本書は設計開始用の簡略仕様。同期判定の基準、捕捉時間の目標、細かな信号条件は初回設計で具体化する。性能シミュレーションは未実施。</p>
+</section>
+<section><h2>参考資料</h2><p class="small"><a href="https://www.mathworks.com/help/comm/ref/carriersynchronizer.html">MathWorks — Carrier Synchronizer</a>：BPSKの0/π位相曖昧性。<br><a href="https://www.mathworks.com/help/comm/ug/awgn-channel.html">MathWorks — AWGN Channel</a>：E<sub>b</sub>/N<sub>0</sub>とサンプルSNRの扱い。</p></section>
+<footer>BPSK Demodulator · Design Input v0.3</footer>
+</main></body></html>
