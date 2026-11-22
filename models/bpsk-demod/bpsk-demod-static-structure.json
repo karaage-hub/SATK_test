@@ -1,0 +1,176 @@
+{
+  "model": "bpsk_demod_architecture",
+  "purpose": "Static port-only architecture; not executable",
+  "blocks": [
+    {
+      "block": "A01_Input",
+      "function_id": "F-01",
+      "sid": 1,
+      "inputs": [
+        "iq",
+        "reset_control"
+      ],
+      "outputs": [
+        "iq_stream"
+      ]
+    },
+    {
+      "block": "A02a_Normalize",
+      "function_id": "F-02",
+      "sid": 7,
+      "inputs": [
+        "iq",
+        "reset_control"
+      ],
+      "outputs": [
+        "iq_normalized"
+      ]
+    },
+    {
+      "block": "A03a_CoarseFrequency",
+      "function_id": "F-03",
+      "sid": 13,
+      "inputs": [
+        "iq",
+        "reset_control"
+      ],
+      "outputs": [
+        "iq_freq_corrected"
+      ]
+    },
+    {
+      "block": "A02b_RRC",
+      "function_id": "F-02",
+      "sid": 19,
+      "inputs": [
+        "iq",
+        "reset_control"
+      ],
+      "outputs": [
+        "iq_filtered"
+      ]
+    },
+    {
+      "block": "A04_TimingSync",
+      "function_id": "F-04",
+      "sid": 25,
+      "inputs": [
+        "iq",
+        "reset_control"
+      ],
+      "outputs": [
+        "symbols",
+        "timing_status"
+      ]
+    },
+    {
+      "block": "A03b_FrequencyPhaseSync",
+      "function_id": "F-03",
+      "sid": 32,
+      "inputs": [
+        "symbols",
+        "reset_control"
+      ],
+      "outputs": [
+        "aligned_symbols",
+        "carrier_status"
+      ]
+    },
+    {
+      "block": "A05_HardDecision",
+      "function_id": "F-05",
+      "sid": 39,
+      "inputs": [
+        "symbols",
+        "reset_control"
+      ],
+      "outputs": [
+        "candidate_bits"
+      ]
+    },
+    {
+      "block": "A06_PreambleDetect",
+      "function_id": "F-06",
+      "sid": 45,
+      "inputs": [
+        "candidate_bits",
+        "reset_control"
+      ],
+      "outputs": [
+        "preamble_scan"
+      ]
+    },
+    {
+      "block": "A07_FrameSync",
+      "function_id": "F-07",
+      "sid": 51,
+      "inputs": [
+        "preamble_scan",
+        "reset_control"
+      ],
+      "outputs": [
+        "frame_descriptor"
+      ]
+    },
+    {
+      "block": "A09a_FrameBuffer",
+      "function_id": "F-09",
+      "sid": 57,
+      "inputs": [
+        "candidate_bits",
+        "frame_descriptor",
+        "reset_control"
+      ],
+      "outputs": [
+        "received_frame",
+        "frame_status"
+      ]
+    },
+    {
+      "block": "A08_PolarityCorrection",
+      "function_id": "F-08",
+      "sid": 64,
+      "inputs": [
+        "received_frame",
+        "frame_descriptor",
+        "reset_control"
+      ],
+      "outputs": [
+        "corrected_frame"
+      ]
+    },
+    {
+      "block": "A09b_OutputAlign",
+      "function_id": "F-09",
+      "sid": 71,
+      "inputs": [
+        "corrected_frame",
+        "frame_descriptor",
+        "frame_permission",
+        "reset_control"
+      ],
+      "outputs": [
+        "bits",
+        "bit_valid",
+        "frame_start"
+      ]
+    },
+    {
+      "block": "A10_ValidityReset",
+      "function_id": "F-10",
+      "sid": 81,
+      "inputs": [
+        "timing_status",
+        "carrier_status",
+        "frame_descriptor",
+        "reset",
+        "frame_status"
+      ],
+      "outputs": [
+        "frame_permission",
+        "reset_control"
+      ]
+    }
+  ],
+  "interface_contracts": "../../docs/architecture/bpsk-demod/bpsk-demod-interface-contracts.json"
+}

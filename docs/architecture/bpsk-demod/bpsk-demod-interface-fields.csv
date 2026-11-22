@@ -1,0 +1,59 @@
+﻿record_type,field,data_type,dimensions,unit,meaning,status
+IqRecord,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+IqRecord,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+IqRecord,sample_index,uint64,scalar,sample,A-01が付与する0始まり入力サンプル位置。80 ksample/s処理間で維持。,draft
+IqRecord,value,complex double,scalar,normalized amplitude,受信または処理後IQ。,draft
+IqRecord,usable,boolean,scalar,-,過渡区間等を除き後続の同期判定に利用可能か。判定条件は次工程。,draft
+SymbolRecord,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+SymbolRecord,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+SymbolRecord,symbol_index,uint64,scalar,symbol,A-04が候補シンボル生成順に0から付与。同期未確立でも生成した候補は数える。,draft
+SymbolRecord,value,complex double,scalar,normalized amplitude,抽出または搬送波補償後のシンボル。,draft
+SymbolRecord,timing_locked,boolean,scalar,-,当該シンボルに対応するタイミング同期状態。入力usableも加味する。,draft
+SymbolRecord,carrier_locked,boolean,scalar,-,当該シンボルの搬送波同期状態。A-04ではfalse、A-03bが設定。,draft
+BitRecord,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+BitRecord,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+BitRecord,bit_index,uint64,scalar,bit,対応するsymbol_indexをそのまま継承。候補bitの0始まり位置。,draft
+BitRecord,value,uint8,scalar,-,極性未確定の硬判定0/1。,draft
+BitRecord,sync_ok,boolean,scalar,-,当該シンボルのtiming_locked AND carrier_locked。falseでもvalidな候補は位置を進める。,draft
+PreambleScan,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+PreambleScan,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+PreambleScan,bit_index,uint64,scalar,bit,照合窓末尾の候補bit位置。未検出時も通知し、A-07が期待位置を通過したことを認識できる。,draft
+PreambleScan,window_ready,boolean,scalar,-,連続した32 bitの窓が揃ったか。,draft
+PreambleScan,match_found,boolean,scalar,-,正規または反転パターンの候補として採用可能か。閾値・同点処理は未定。,draft
+PreambleScan,start_bit,uint64,scalar,bit,window_ready時のみ有効。bit_index-31。,draft
+PreambleScan,invert,boolean,scalar,-,match_found時のみ有効。trueなら全bit反転候補。,draft
+PreambleScan,errors_normal,uint8,scalar,bit,window_ready時の正規プリアンブルとの不一致数0〜32。,draft
+PreambleScan,errors_inverted,uint8,scalar,bit,window_ready時の反転プリアンブルとの不一致数0〜32。,draft
+PreambleScan,window_sync_ok,boolean,scalar,-,照合対象32 bitすべてでsync_okがtrueか。,draft
+FrameDescriptor,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+FrameDescriptor,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+FrameDescriptor,start_bit,uint64,scalar,bit,対象フレームのプリアンブル先頭bit位置。epochと合わせてフレームキーとする。,draft
+FrameDescriptor,confirmed,boolean,scalar,-,当該フレームの位置とプリアンブルが確認済みか。未検出等ではfalse。,draft
+FrameDescriptor,polarity_valid,boolean,scalar,-,invertが有効な極性判断か。,draft
+FrameDescriptor,invert,boolean,scalar,-,trueなら対象288 bitを反転。polarity_valid=falseのとき解釈しない。,draft
+ReceivedFrame,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+ReceivedFrame,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+ReceivedFrame,start_bit,uint64,scalar,bit,保持フレームの先頭。,draft
+ReceivedFrame,bits,uint8,"[288,1]",-,受信順の0/1。先頭32要素がプリアンブル、残り256要素がデータ。,draft
+ReceivedFrame,sync_ok_all,boolean,scalar,-,対象288 bitのsync_okの論理積。現在のロック状態で代用しない。,draft
+FrameStatus,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+FrameStatus,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+FrameStatus,start_bit,uint64,scalar,bit,評価対象の先頭。,draft
+FrameStatus,complete,boolean,scalar,-,288 bitが欠落・重複なく揃ったか。,draft
+FrameStatus,sync_ok_all,boolean,scalar,-,completeなフレームの全bitで同期成立していたか。complete=false時はfalse。,draft
+CorrectedFrame,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+CorrectedFrame,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+CorrectedFrame,start_bit,uint64,scalar,bit,元の受信フレームと同じ先頭。,draft
+CorrectedFrame,bits,uint8,"[288,1]",-,極性補正済み0/1。受信プリアンブルも同じ規則で補正し置換しない。,draft
+CorrectedFrame,sync_ok_all,boolean,scalar,-,ReceivedFrameから継承する。,draft
+CorrectedFrame,inverted,boolean,scalar,-,実際に全bit反転を適用したか。,draft
+SyncStatus,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+SyncStatus,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+SyncStatus,symbol_index,uint64,scalar,symbol,この同期判定が対応する候補シンボル位置。,draft
+SyncStatus,locked,boolean,scalar,-,タイミングまたは搬送波の同期成立判定。具体閾値・継続条件は次工程。,draft
+FramePermission,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
+FramePermission,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
+FramePermission,start_bit,uint64,scalar,bit,出力判断対象の先頭。,draft
+FramePermission,allow,boolean,scalar,-,trueなら当該完成フレームの送出を許可。falseなら当該フレームは破棄。,draft
+ResetControl,reset,boolean,scalar,-,trueの間は保持状態・出力有効を初期化し新規データを消費しない。,draft
+ResetControl,epoch,uint64,scalar,-,実行開始は0。新しい初期化区間で更新し、同じreset保持期間中は変えない。,draft

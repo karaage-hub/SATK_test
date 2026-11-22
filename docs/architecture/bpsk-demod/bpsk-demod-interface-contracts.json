@@ -1,0 +1,722 @@
+{
+  "version": "0.1",
+  "model": "bpsk_demod_architecture",
+  "representation": "Logical contracts; Simulink.Bus definitions in config/bpsk_demod_interfaces.sldd and port type assignments applied. Behavior not implemented.",
+  "schemas": {
+    "IqRecord": {
+      "description": "80 ksample/sのIQレコード。数値本体と位置・過渡有効性を一体で扱う。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "sample_index",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "sample",
+          "meaning": "A-01が付与する0始まり入力サンプル位置。80 ksample/s処理間で維持。"
+        },
+        {
+          "name": "value",
+          "type": "complex double",
+          "shape": "scalar",
+          "unit": "normalized amplitude",
+          "meaning": "受信または処理後IQ。"
+        },
+        {
+          "name": "usable",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "過渡区間等を除き後続の同期判定に利用可能か。判定条件は次工程。"
+        }
+      ]
+    },
+    "SymbolRecord": {
+      "description": "A-04以降のシンボルレコード。処理で値が変わっても位置を保つ。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "symbol_index",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "symbol",
+          "meaning": "A-04が候補シンボル生成順に0から付与。同期未確立でも生成した候補は数える。"
+        },
+        {
+          "name": "value",
+          "type": "complex double",
+          "shape": "scalar",
+          "unit": "normalized amplitude",
+          "meaning": "抽出または搬送波補償後のシンボル。"
+        },
+        {
+          "name": "timing_locked",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "当該シンボルに対応するタイミング同期状態。入力usableも加味する。"
+        },
+        {
+          "name": "carrier_locked",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "当該シンボルの搬送波同期状態。A-04ではfalse、A-03bが設定。"
+        }
+      ]
+    },
+    "BitRecord": {
+      "description": "硬判定候補。転送有効と同期成立を区別する。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "bit_index",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "対応するsymbol_indexをそのまま継承。候補bitの0始まり位置。"
+        },
+        {
+          "name": "value",
+          "type": "uint8",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "極性未確定の硬判定0/1。"
+        },
+        {
+          "name": "sync_ok",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "当該シンボルのtiming_locked AND carrier_locked。falseでもvalidな候補は位置を進める。"
+        }
+      ]
+    },
+    "PreambleScan": {
+      "description": "検出の有無に関係なく、各候補bitで進捗を通知する。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "bit_index",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "照合窓末尾の候補bit位置。未検出時も通知し、A-07が期待位置を通過したことを認識できる。"
+        },
+        {
+          "name": "window_ready",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "連続した32 bitの窓が揃ったか。"
+        },
+        {
+          "name": "match_found",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "正規または反転パターンの候補として採用可能か。閾値・同点処理は未定。"
+        },
+        {
+          "name": "start_bit",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "window_ready時のみ有効。bit_index-31。"
+        },
+        {
+          "name": "invert",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "match_found時のみ有効。trueなら全bit反転候補。"
+        },
+        {
+          "name": "errors_normal",
+          "type": "uint8",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "window_ready時の正規プリアンブルとの不一致数0〜32。"
+        },
+        {
+          "name": "errors_inverted",
+          "type": "uint8",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "window_ready時の反転プリアンブルとの不一致数0〜32。"
+        },
+        {
+          "name": "window_sync_ok",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "照合対象32 bitすべてでsync_okがtrueか。"
+        }
+      ]
+    },
+    "FrameDescriptor": {
+      "description": "フレーム先頭・極性・同期確定情報。対象フレームを明示する。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "start_bit",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "対象フレームのプリアンブル先頭bit位置。epochと合わせてフレームキーとする。"
+        },
+        {
+          "name": "confirmed",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "当該フレームの位置とプリアンブルが確認済みか。未検出等ではfalse。"
+        },
+        {
+          "name": "polarity_valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "invertが有効な極性判断か。"
+        },
+        {
+          "name": "invert",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "trueなら対象288 bitを反転。polarity_valid=falseのとき解釈しない。"
+        }
+      ]
+    },
+    "ReceivedFrame": {
+      "description": "受信した288 bitの完成フレーム。プリアンブルの受信値を保持する。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "start_bit",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "保持フレームの先頭。"
+        },
+        {
+          "name": "bits",
+          "type": "uint8",
+          "shape": "[288,1]",
+          "unit": "-",
+          "meaning": "受信順の0/1。先頭32要素がプリアンブル、残り256要素がデータ。"
+        },
+        {
+          "name": "sync_ok_all",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "対象288 bitのsync_okの論理積。現在のロック状態で代用しない。"
+        }
+      ]
+    },
+    "FrameStatus": {
+      "description": "A-09aからA-10へのフレーム単位の受信結果。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "start_bit",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "評価対象の先頭。"
+        },
+        {
+          "name": "complete",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "288 bitが欠落・重複なく揃ったか。"
+        },
+        {
+          "name": "sync_ok_all",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "completeなフレームの全bitで同期成立していたか。complete=false時はfalse。"
+        }
+      ]
+    },
+    "CorrectedFrame": {
+      "description": "対象フレームの極性補正済みレコード。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "start_bit",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "元の受信フレームと同じ先頭。"
+        },
+        {
+          "name": "bits",
+          "type": "uint8",
+          "shape": "[288,1]",
+          "unit": "-",
+          "meaning": "極性補正済み0/1。受信プリアンブルも同じ規則で補正し置換しない。"
+        },
+        {
+          "name": "sync_ok_all",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "ReceivedFrameから継承する。"
+        },
+        {
+          "name": "inverted",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "実際に全bit反転を適用したか。"
+        }
+      ]
+    },
+    "SyncStatus": {
+      "description": "同期品質の判定結果を候補シンボル位置とともに通知する。生の誤差信号は本契約に含めない。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "symbol_index",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "symbol",
+          "meaning": "この同期判定が対応する候補シンボル位置。"
+        },
+        {
+          "name": "locked",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "タイミングまたは搬送波の同期成立判定。具体閾値・継続条件は次工程。"
+        }
+      ]
+    },
+    "FramePermission": {
+      "description": "現在時刻の単一ロックflagではなく対象フレーム別の出力判断。",
+      "fields": [
+        {
+          "name": "valid",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "新しいレコードがある場合true。false時は他フィールドを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "初期化区間のID。異なるepochのデータ・制御を結合しない。"
+        },
+        {
+          "name": "start_bit",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "bit",
+          "meaning": "出力判断対象の先頭。"
+        },
+        {
+          "name": "allow",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "trueなら当該完成フレームの送出を許可。falseなら当該フレームは破棄。"
+        }
+      ]
+    },
+    "ResetControl": {
+      "description": "A-10から全処理へ渡す初期化要求とepoch。",
+      "fields": [
+        {
+          "name": "reset",
+          "type": "boolean",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "trueの間は保持状態・出力有効を初期化し新規データを消費しない。"
+        },
+        {
+          "name": "epoch",
+          "type": "uint64",
+          "shape": "scalar",
+          "unit": "-",
+          "meaning": "実行開始は0。新しい初期化区間で更新し、同じreset保持期間中は変えない。"
+        }
+      ]
+    }
+  },
+  "interfaces": [
+    {
+      "interface_id": "IF-01",
+      "source": "root/rx_iq",
+      "destination": "A01_Input/iq",
+      "signal": "rx_iq",
+      "data_type": "complex double",
+      "dimensions": "1 logical sample",
+      "rate_or_validity": "80 ksample/s。外部resetがfalseの間は連続入力。",
+      "unit": "normalized amplitude",
+      "reset_behavior": "reset中は消費しない。外部入力ポートは追加しない。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-02",
+      "source": "A01_Input/iq_stream",
+      "destination": "A02a_Normalize/iq",
+      "signal": "iq_stream",
+      "data_type": "IqRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "80 ksample/s、valid時のみ消費。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-03",
+      "source": "A02a_Normalize/iq_normalized",
+      "destination": "A03a_CoarseFrequency/iq",
+      "signal": "iq_normalized",
+      "data_type": "IqRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "80 ksample/s、valid時のみ消費。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-04",
+      "source": "A03a_CoarseFrequency/iq_freq_corrected",
+      "destination": "A02b_RRC/iq",
+      "signal": "iq_freq_corrected",
+      "data_type": "IqRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "80 ksample/s、valid時のみ消費。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-05",
+      "source": "A02b_RRC/iq_filtered",
+      "destination": "A04_TimingSync/iq",
+      "signal": "iq_filtered",
+      "data_type": "IqRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "80 ksample/s、valid時のみ消費。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-06",
+      "source": "A04_TimingSync/symbols",
+      "destination": "A03b_FrequencyPhaseSync/symbols",
+      "signal": "symbols",
+      "data_type": "SymbolRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "公称10 ksymbol/s。validな候補ごとに更新。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-07",
+      "source": "A03b_FrequencyPhaseSync/aligned_symbols",
+      "destination": "A05_HardDecision/symbols",
+      "signal": "aligned_symbols",
+      "data_type": "SymbolRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "IF-06の位置を保持。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-08",
+      "source": "A05_HardDecision/candidate_bits",
+      "destination": "A06_PreambleDetect/candidate_bits;A09a_FrameBuffer/candidate_bits",
+      "signal": "candidate_bits",
+      "data_type": "BitRecord",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "公称10 kbit/s。validとsync_okを区別。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-09",
+      "source": "A06_PreambleDetect/preamble_scan",
+      "destination": "A07_FrameSync/preamble_scan",
+      "signal": "preamble_scan",
+      "data_type": "PreambleScan",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "候補bitごと。未検出時もvalid=trueで進捗を通知。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-10",
+      "source": "A07_FrameSync/frame_descriptor",
+      "destination": "A09a_FrameBuffer/frame_descriptor;A08_PolarityCorrection/frame_descriptor;A09b_OutputAlign/frame_descriptor;A10_ValidityReset/frame_descriptor",
+      "signal": "frame_descriptor",
+      "data_type": "FrameDescriptor",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "フレーム判断イベント。位置・極性が揃うまでconfirmed=false。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-11",
+      "source": "A09a_FrameBuffer/received_frame",
+      "destination": "A08_PolarityCorrection/received_frame",
+      "signal": "received_frame",
+      "data_type": "ReceivedFrame",
+      "dimensions": "bits=[288,1]; metadata=scalar",
+      "rate_or_validity": "完成フレームごと。未完成のbit配列は出さない。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-12",
+      "source": "A08_PolarityCorrection/corrected_frame",
+      "destination": "A09b_OutputAlign/corrected_frame",
+      "signal": "corrected_frame",
+      "data_type": "CorrectedFrame",
+      "dimensions": "bits=[288,1]; metadata=scalar",
+      "rate_or_validity": "同一キーのReceivedFrameと有効なFrameDescriptorが揃ったとき。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-13",
+      "source": "A04_TimingSync/timing_status",
+      "destination": "A10_ValidityReset/timing_status",
+      "signal": "timing_status",
+      "data_type": "SyncStatus",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "候補シンボルごとのタイミング同期状態。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-14",
+      "source": "A03b_FrequencyPhaseSync/carrier_status",
+      "destination": "A10_ValidityReset/carrier_status",
+      "signal": "carrier_status",
+      "data_type": "SyncStatus",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "候補シンボルごとの搬送波同期状態。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-15",
+      "source": "A10_ValidityReset/frame_permission",
+      "destination": "A09b_OutputAlign/frame_permission",
+      "signal": "frame_permission",
+      "data_type": "FramePermission",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "対象フレームの完了状態と記述子が揃ったときに判断。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-16",
+      "source": "root/reset",
+      "destination": "A10_ValidityReset/reset",
+      "signal": "reset",
+      "data_type": "boolean",
+      "dimensions": "scalar",
+      "rate_or_validity": "true中は初期化保持。",
+      "unit": "-",
+      "reset_behavior": "外部resetを優先。bits/bit_valid/frame_startを0/false/falseへ。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-17",
+      "source": "A10_ValidityReset/reset_control",
+      "destination": "A01_Input/reset_control;A02a_Normalize/reset_control;A03a_CoarseFrequency/reset_control;A02b_RRC/reset_control;A04_TimingSync/reset_control;A03b_FrequencyPhaseSync/reset_control;A05_HardDecision/reset_control;A06_PreambleDetect/reset_control;A07_FrameSync/reset_control;A09a_FrameBuffer/reset_control;A08_PolarityCorrection/reset_control;A09b_OutputAlign/reset_control",
+      "signal": "reset_control",
+      "data_type": "ResetControl",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "各処理のデータより先に適用する共通制御。",
+      "unit": "-",
+      "reset_behavior": "reset保持中にepochを増やし続けない。再取得でepochを更新する具体条件は次工程。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-18",
+      "source": "A09b_OutputAlign/bits",
+      "destination": "root/bits",
+      "signal": "bits",
+      "data_type": "uint8",
+      "dimensions": "scalar",
+      "rate_or_validity": "公称10 kbit/s、bit_valid=true時のみ意味を持つ。",
+      "unit": "bit",
+      "reset_behavior": "reset時0。無効区間も0。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-19",
+      "source": "A09b_OutputAlign/bit_valid",
+      "destination": "root/bit_valid",
+      "signal": "bit_valid",
+      "data_type": "boolean",
+      "dimensions": "scalar",
+      "rate_or_validity": "bitsと同時。同期・位置・極性が確定した対象フレームの送出時にtrue。",
+      "unit": "-",
+      "reset_behavior": "reset時false。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-20",
+      "source": "A09b_OutputAlign/frame_start",
+      "destination": "root/frame_start",
+      "signal": "frame_start",
+      "data_type": "boolean",
+      "dimensions": "scalar",
+      "rate_or_validity": "bit_valid=trueかつフレームの最初のbitのみtrue。",
+      "unit": "-",
+      "reset_behavior": "reset時false。",
+      "status": "draft"
+    },
+    {
+      "interface_id": "IF-21",
+      "source": "A09a_FrameBuffer/frame_status",
+      "destination": "A10_ValidityReset/frame_status",
+      "signal": "frame_status",
+      "data_type": "FrameStatus",
+      "dimensions": "1 logical record",
+      "rate_or_validity": "フレーム完了または取得失敗を確定したイベント。受信中の同期状態を集約。",
+      "unit": "-",
+      "reset_behavior": "初期化時はvalid=false、旧epochの情報を破棄。",
+      "status": "draft"
+    }
+  ]
+}

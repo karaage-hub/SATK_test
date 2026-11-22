@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width,initial-scale=1" name="viewport"/>
+    <title>BPSK復調部 — 検討状況</title>
+    <style>
+      * {
+        box-sizing:border-box
+      }
+      body {
+        margin:0;
+        background:#eef3f6;
+        color:#203448;
+        font:16px/1.85 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+      }
+      header {
+        background:#123149;
+        color:white;
+        padding:35px max(24px,calc((100vw - 1100px)/2))
+      }
+      header p {
+        color:#d4e6ee
+      }
+      h1 {
+        font-size:30px
+      }
+      main {
+        max-width:1160px;
+        margin:auto;
+        padding:24px
+      }
+      section {
+        background:white;
+        padding:26px 30px;
+        border:1px solid #d5e0e7;
+        border-radius:10px;
+        margin-bottom:20px
+      }
+      h2 {
+        font-size:23px;
+        margin-top:0
+      }
+      h3 {
+        font-size:19px;
+        color:#146b78
+      }
+      a {
+        color:#086b91
+      }
+      .table {
+        overflow:auto
+      }
+      table {
+        border-collapse:collapse;
+        width:100%;
+        font-size:14px
+      }
+      th,td {
+        border:1px solid #d5e0e7;
+        padding:11px;
+        text-align:left;
+        vertical-align:top
+      }
+      th {
+        background:#eff5f8
+      }
+      .note {
+        background:#edf6f6;
+        border-left:4px solid #258c91;
+        padding:14px 18px
+      }
+      .small {
+        color:#597080;
+        font-size:13px
+      }
+      article {
+        border-top:1px solid #d5e0e7;
+        margin-top:24px;
+        padding-top:10px
+      }
+      dl {
+        display:grid;
+        grid-template-columns:120px 1fr;
+        gap:8px 14px
+      }
+      dt {
+        font-weight:bold
+      }
+      dd {
+        margin:0
+      }
+      svg {
+        width:100%;
+        height:auto;
+        min-width:750px
+      }
+      code {
+        background:#eef3f6;
+        padding:2px 5px
+      }
+      @media(max-width:650px) {
+        main {
+          padding:12px
+        }
+        section {
+          padding:18px
+        }
+        dl {
+          display:block
+        }
+        dd {
+          margin-bottom:12px
+        }
+      }
+      @media print {
+        body {
+          background:white
+        }
+        header {
+          background:white;
+          color:#123149;
+          padding:10px
+        }
+        header p {
+          color:#597080
+        }
+        main {
+          padding:0
+        }
+        section {
+          border:0;
+          padding:15px 0
+        }
+        article,tr {
+          break-inside:avoid
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>BPSK復調部：検討状況</h1>
+      <p>2026-11-22 · 残課題・実装状況・検証記録</p>
+      <p><a href="bpsk-demod-architecture.html">設計仕様へ</a></p>
+    </header>
+    <main>
+      <section>
+        <h2>1. 設計の位置付け</h2>
+        <p>構成案Aの大方針はユーザー確認済み。方式・型定義はdraftであり、性能検証による採用確定ではない。上位仕様は変更していない。機能要求と実現案を区別する。</p>
+      </section>
+      <section>
+        <h2>2. 成果物と実装状況</h2>
+        <ul>
+          <li>機能F-01〜F-10、構成案A、内部インターフェース21件を定義。</li>
+          <li>13サブシステムの静的モデルを作成。内部は端子のみで、アルゴリズム未実装。</li>
+          <li>辞書に11種類・58フィールドを収録し、57端子に型を設定。</li>
+          <li>CSVからの辞書生成・静的整合確認スクリプトを作成。</li>
+          <li>MATLAB参照実装、実行モデル、試験ハーネス、性能評価は未実施。</li>
+        </ul>
+      </section>
+      <section>
+        <h2>3. 処理別の残課題</h2>
+        <p>以下は構成案検討時の残課題。具体型はその後、第10・11章で参照設計用の型を定義した。固定小数点等の実装型は未確定。</p>
+        <table>
+          <tr>
+            <th>処理</th>
+            <th>検討項目</th>
+          </tr>
+          <tr>
+            <td>A-01／F-01</td>
+            <td>配列サイズ・呼出周期・具体型。</td>
+          </tr>
+          <tr>
+            <td>A-02a／F-02の補助</td>
+            <td>入力振幅の範囲、利得更新方式・時定数・上限。</td>
+          </tr>
+          <tr>
+            <td>A-03a／F-03 搬送波周波数の粗補償</td>
+            <td>推定窓、FFT等の推定手段、残留誤差目標。±100 Hzに対する成立性は未検証。</td>
+          </tr>
+          <tr>
+            <td>A-02b／F-02</td>
+            <td>フィルタ長・係数・過渡区間。</td>
+          </tr>
+          <tr>
+            <td>A-04／F-04</td>
+            <td>補間器、ループ定数、同期品質の判定条件。</td>
+          </tr>
+          <tr>
+            <td>A-03b／F-03 残留周波数・搬送波位相同期</td>
+            <td>位相誤差式、ループ定数、引込み範囲、同期品質の判定条件。</td>
+          </tr>
+          <tr>
+            <td>A-05／F-05</td>
+            <td>境界値・無効値の扱い、具体的な数値型。</td>
+          </tr>
+          <tr>
+            <td>A-06／F-06</td>
+            <td>許容不一致数、曖昧候補の扱い。</td>
+          </tr>
+          <tr>
+            <td>A-07／F-07</td>
+            <td>候補選択、検出許容窓、未検出回数など解除条件の細部。</td>
+          </tr>
+          <tr>
+            <td>A-09a／F-09</td>
+            <td>探索用履歴とフレーム領域の構造、必要な総容量。</td>
+          </tr>
+          <tr>
+            <td>A-08／F-08</td>
+            <td>演算の具体型。補正対象とフレーム情報は常に対で扱う。</td>
+          </tr>
+          <tr>
+            <td>A-09b／F-09</td>
+            <td>厳密な容量と遅延。ソフトウェアの呼出単位は通信フレームと独立。</td>
+          </tr>
+          <tr>
+            <td>A-10／F-10</td>
+            <td>状態機械の詳細、各品質判定の閾値、再取得時に初期化する範囲。</td>
+          </tr>
+        </table>
+        <h3>共通の残課題と検証範囲</h3>
+        <ul>
+          <li>Draft v0.7 · 2026-11-22 · 機能定義＋構成案A（会話用・未検証）</li>
+          <li>機能別の性能配分は未決定。</li>
+          <li>順序・相互作用・一体実装の可否は未定。</li>
+          <li>判定対象をbit列とするか信号表現とするか、検出・確定手順は未定。</li>
+          <li>補正前後の保持位置や機能間の呼出関係は未定。</li>
+          <li>同期状態を中央へ集約するか、各機能で分担するかは未定。</li>
+          <li>全機能はdraft。</li>
+          <li>具体的な履歴・カウンタは未定。</li>
+          <li>係数・次数・内部状態の表現は未定。</li>
+          <li>推定状態・更新方式・粗微細への分割は未定。</li>
+          <li>推定器・補間器・履歴・更新方式は未定。</li>
+          <li>判定式・内部座標系・パイプラインは未定。</li>
+          <li>照合領域・一致度の定義・検出方式は未定。</li>
+          <li>取得・維持・解除の条件と保持情報の表現は未定。</li>
+          <li>補正位置・保持方法は未定。</li>
+          <li>保持の位置・容量・遅延は未定。</li>
+          <li>状態の集中管理・分散管理と状態遷移方式は未定。</li>
+          <li>次フレーム受信中の同期喪失だけを理由に、既に確認済みの完成フレームの送出を途中で止めない。</li>
+          <li>アルゴリズムは未実装。</li>
+          <li>配列呼出し単位・実行周期は今後定義する。</li>
+          <li>実行周期は未定。</li>
+          <li>1レコードは1サンプル／シンボル／bit／フレームを意味し、関数呼出しの配列長は別途決定する。</li>
+          <li>判定条件は次工程。</li>
+          <li>閾値・同点処理は未定。</li>
+          <li>当該フレームの位置とプリアンブルが確認済みか。</li>
+          <li>具体閾値・継続条件は次工程。</li>
+          <li>取得確認・解除の閾値は次工程。</li>
+          <li>サブシステム内部は端子のみで、コンパイル・シミュレーション・性能検証は未実施。</li>
+          <li>搬送波・タイミング・フレーム同期または極性が未確定の間は、出力を有効にしない。</li>
+          <li>初期位相は未確定のまま。</li>
+          <li>本案では構成を理解しやすくするためにこの保持方針を置くが、総遅延の値は未確定。</li>
+          <li>極性未確定の硬判定0/1。</li>
+          <li>位置または極性が未確定のフレームを合格にしない。</li>
+          <li>現在の数値型はdraftであり、固定小数点等の実装制約は未確定。</li>
+          <li>実行周期、virtual / nonvirtual busの実現方式は実装段階で決める。</li>
+        </ul>
+      </section>
+      <section>
+        <h2>4. 検証記録</h2>
+        <p>2026-11-22：CSV・辞書・57端子の静的整合、21インターフェースの端子存在、接続線、辞書再生成を確認。Projectチェック11項目は合格。コンパイル・シミュレーション・BER・捕捉性能は未検証。型の整合確認はvalid・epoch等の動作規則を検証するものではない。</p>
+      </section>
+      <section>
+        <h2>5. 検討経緯・参考根拠</h2>
+        <h3>機能定義整理時の改訂記録（v0.3）</h3>
+        <p>v0.3では機能IDと上位要求対応を維持し、F-02・F-06・F-08・F-09・F-10の名称と各機能の記述を責務中心に整理した。直列処理図を機能階層図へ変更し、実部による判定式、粗微細同期への分割、保持の往復接続、中央制御への集約を未決定事項へ移した。</p>
+        <ul>
+          <li><a href="bpsk-demod-functions.csv">機能一覧</a>：10機能、draft。</li>
+          <li><a href="bpsk-demod-traceability.csv">要求対応表</a>：R-01〜R-06への対応を維持。静的モデルの要素を対応付け済み。試験ID・結果は未実施のため空欄。</li>
+          <li><a href="bpsk-demod-interfaces.csv">内部インターフェース一覧</a>：静的モデルの接続・論理型は第10章で定義。Bus型適用は第11章。実行周期は未定。</li>
+        </ul>
+        <p>上位仕様は変更していない。静的モデルは第9章を参照。アルゴリズム実装・性能検証は未実施。HTMLとCSVの整合とリンクを確認する。</p>
+        <h3>今回の相談の起点（当時の記録）</h3>
+        <p><strong>大方針はユーザー確認済み。前半は「搬送波周波数の粗補償 → RRC → Gardnerタイミング同期 → 残留搬送波周波数・搬送波位相の同期」として具体化する。</strong>その後、フレーム確認と保持・出力の動作を会話で具体化する。ループ係数や検出閾値の数値調整にはまだ進まない。</p>
+        <h3>根拠と検証の境界（当時の記録）</h3>
+        <p>MathWorksの<a href="https://www.mathworks.com/help/comm/ug/qpsk-transmitter-and-receiver-in-simulink.html">QPSK受信機例</a>には、粗周波数補償・シンボル同期・搬送波同期・フレーム同期の分担が示されている。また、<a href="https://www.mathworks.com/help/comm/ref/comm.symbolsynchronizer-system-object.html">Symbol Synchronizer資料</a>で非データ援用のGardner方式と、サンプルレート入力からシンボルレート出力への変換を確認した。これらを参考にBPSK用の本案を提案したものであり、既存例の性能や設定をそのまま転用するものではない。</p>
+        <p>本案の粗推定方式、RRCの配置、2回のプリアンブル確認、フレーム保持は設計上の提案。捕捉、データ内パターンへの誤同期、BER、失同期時の動作は未検証。実装API・ブロックの採用も未確定。</p>
+        <h3>今回の範囲と次工程（当時の記録）</h3>
+        <p>端子名・論理型・フィールド・位置の意味・無効時の扱いを定義した。モデルは静的な端子と接続のまま。同期判定閾値、状態遷移、欠落検出や未完了破棄の条件、許可待ちの上限・保持容量、呼出し配列長、実行サンプル時間は次工程で決める。これは出力の無誤りを保証する契約ではなく、同期・位置・極性と受信データを対応付ける契約である。</p>
+        <p class="note">インターフェース具体化に伴い、A-09a → A-10のフレーム受信結果を追加した（IF-21、第10章）。静的モデルと第9章の全体図に反映済み。</p>
+        <p class="note"><strong>静的モデルへの追加：</strong>保持フレームの受信時点の品質を管理部へ伝えるため、A-09a → A-10にIF-21（frame_status）を追加する。同期機能・フレーム形式・主データ経路は変更しない。この接続により、現在の同期flagだけで過去の保持フレームを誤判定する問題を避ける。</p>
+        <p>v0.8：設計内容と検討状況を別HTMLに分離。仕様・型・モデル接続の変更なし。</p>
+      </section>
+    </main>
+  </body>
+</html>
