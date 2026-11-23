@@ -2,7 +2,7 @@ function check_bpsk_interfaces
 %CHECK_BPSK_INTERFACES CSV、辞書、モデル端子の静的整合を確認。
 % コンパイル・シミュレーション・動作規則の検証は行わない。
 p = currentProject;
-folder = fullfile(p.RootFolder,'docs/architecture/bpsk-demod');
+folder = fullfile(p.RootFolder,'docs/bpsk-demod/data');
 f = readtable(fullfile(folder,'bpsk-demod-interface-fields.csv'),'TextType','string','Encoding','UTF-8');
 i = readtable(fullfile(folder,'bpsk-demod-interfaces.csv'),'TextType','string','Encoding','UTF-8');
 d = Simulink.data.dictionary.open(fullfile(p.RootFolder,'config/bpsk_demod_interfaces.sldd'));

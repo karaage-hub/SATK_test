@@ -20,11 +20,11 @@ MATLAB Agentic ToolkitとSimulink Agentic Toolkitを使い、BPSK復調器の設
 
 まず以下を参照する。
 
-1. `docs/specs/algorithms/blind-bpsk/blind-bpsk-design-input.html`：上位仕様。
-2. `docs/architecture/bpsk-demod/bpsk-demod-deliverables.html`：成果物形式と配置方針。
-3. `docs/architecture/bpsk-demod/` のCSV：機能・内部インターフェース・要求の対応。
+1. `docs/bpsk-demod/bpsk-demod-design-input.html`：上位仕様。
+2. `docs/bpsk-demod/bpsk-demod-deliverables.html`：成果物形式と配置方針。
+3. `docs/bpsk-demod/data/` のCSV：機能・内部インターフェース・要求の対応。
 
-設計インプットの `blind-bpsk` は既存リンク維持のため残した名前であり、現在の仕様がプリアンブルなしという意味ではない。今後の内部設計・実装は `bpsk-demod` とする。
+設計文書は `docs/bpsk-demod/`、一覧・機械可読データはその `data/`、画像は `assets/` にまとめる。
 
 現行の前提（変更時は正本と関連文書を同時に更新）：
 
@@ -40,7 +40,7 @@ MATLAB Agentic ToolkitとSimulink Agentic Toolkitを使い、BPSK復調器の設
 
 | 保存先 | 内容・形式 |
 | --- | --- |
-| `docs/architecture/bpsk-demod/` | 機能導出・アーキテクチャHTML、埋込みSVG、一覧CSV |
+| `docs/bpsk-demod/` | HTML、data/にCSV・JSON、assets/に画像 |
 | `models/bpsk-demod/` | 復調モデル `.slx` |
 | `models/harness/` | ADC・DDC・波形源・チャネル・評価器を含むハーネス `.slx` |
 | `src/bpsk-demod/` | MATLAB参照実装 `.m` |

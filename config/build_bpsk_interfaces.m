@@ -3,7 +3,7 @@ function build_bpsk_interfaces
 % 既存の無関係な辞書エントリは保持する。モデルの端子設定は変更しない。
 p = currentProject;
 root = p.RootFolder;
-f = readtable(fullfile(root,'docs/architecture/bpsk-demod/bpsk-demod-interface-fields.csv'),'TextType','string','Encoding','UTF-8');
+f = readtable(fullfile(root,'docs/bpsk-demod/data/bpsk-demod-interface-fields.csv'),'TextType','string','Encoding','UTF-8');
 file = fullfile(root,'config/bpsk_demod_interfaces.sldd');
 if isfile(file), d = Simulink.data.dictionary.open(file);
 else, d = Simulink.data.dictionary.create(file); end
@@ -12,7 +12,7 @@ types = unique(f.record_type,'stable');
 for k = 1:numel(types)
     rows = f(f.record_type == types(k),:);
     bus = Simulink.Bus;
-    bus.Description = char(types(k) + " | draft | CSV: bpsk-demod-interface-fields.csv; 動作契約: 仕様書10章");
+    bus.Description = char(types(k) + " | draft | CSV: bpsk-demod-interface-fields.csv; 動作契約: 仕様書5章");
     elements = repmat(Simulink.BusElement,height(rows),1);
     for j = 1:height(rows)
         e = Simulink.BusElement;

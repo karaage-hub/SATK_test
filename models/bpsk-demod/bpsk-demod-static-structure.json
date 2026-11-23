@@ -172,5 +172,5 @@
       ]
     }
   ],
-  "interface_contracts": "../../docs/architecture/bpsk-demod/bpsk-demod-interface-contracts.json"
+  "interface_contracts": "../../docs/bpsk-demod/data/bpsk-demod-interface-contracts.json"
 }

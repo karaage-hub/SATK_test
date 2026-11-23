@@ -39,7 +39,7 @@
           "type": "boolean",
           "shape": "scalar",
           "unit": "-",
-          "meaning": "過渡区間等を除き後続の同期判定に利用可能か。判定条件は次工程。"
+          "meaning": "後続の同期判定への利用可否。A-03aは入力の利用可否と粗周波数推定の利用可否を反映し、A-02bはフィルタ過渡も加味する。falseは後段でtrueに上書きしない。具体判定条件は次工程。"
         }
       ]
     },
@@ -446,7 +446,7 @@
       ]
     },
     "ResetControl": {
-      "description": "A-10から全処理へ渡す初期化要求とepoch。",
+      "description": "全処理へ配布するresetとepoch。reset=falseのepoch更新は再捕捉を表す。",
       "fields": [
         {
           "name": "reset",
@@ -460,7 +460,7 @@
           "type": "uint64",
           "shape": "scalar",
           "unit": "-",
-          "meaning": "実行開始は0。新しい初期化区間で更新し、同じreset保持期間中は変えない。"
+          "meaning": "実行開始は0。外部reset区間の開始または再捕捉要求ごとに更新し、reset保持中は維持。reset=falseでの更新は再捕捉。旧epochの未許可情報を破棄し、A-09bで受理済みの許可済み完成フレームだけ送出を継続する。"
         }
       ]
     }
@@ -665,9 +665,9 @@
       "signal": "reset_control",
       "data_type": "ResetControl",
       "dimensions": "1 logical record",
-      "rate_or_validity": "各処理のデータより先に適用する共通制御。",
+      "rate_or_validity": "データより先に適用。resetは全初期化、epoch更新のみは再捕捉。",
       "unit": "-",
-      "reset_behavior": "reset保持中にepochを増やし続けない。再取得でepochを更新する具体条件は次工程。",
+      "reset_behavior": "外部reset区間の開始または再捕捉要求ごとにepochを1回更新。reset保持中は維持。再捕捉時はA-09b受理済みの許可済み完成フレームを保持し、外部resetでは全破棄。",
       "status": "draft"
     },
     {

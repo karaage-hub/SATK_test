@@ -3,7 +3,7 @@ IqRecord,valid,boolean,scalar,-,新しいレコードがある場合true。false
 IqRecord,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
 IqRecord,sample_index,uint64,scalar,sample,A-01が付与する0始まり入力サンプル位置。80 ksample/s処理間で維持。,draft
 IqRecord,value,complex double,scalar,normalized amplitude,受信または処理後IQ。,draft
-IqRecord,usable,boolean,scalar,-,過渡区間等を除き後続の同期判定に利用可能か。判定条件は次工程。,draft
+IqRecord,usable,boolean,scalar,-,後続の同期判定への利用可否。A-03aは入力の利用可否と粗周波数推定の利用可否を反映し、A-02bはフィルタ過渡も加味する。falseは後段でtrueに上書きしない。具体判定条件は次工程。,draft
 SymbolRecord,valid,boolean,scalar,-,新しいレコードがある場合true。false時は他フィールドを消費しない。,draft
 SymbolRecord,epoch,uint64,scalar,-,初期化区間のID。異なるepochのデータ・制御を結合しない。,draft
 SymbolRecord,symbol_index,uint64,scalar,symbol,A-04が候補シンボル生成順に0から付与。同期未確立でも生成した候補は数える。,draft
@@ -56,4 +56,4 @@ FramePermission,epoch,uint64,scalar,-,初期化区間のID。異なるepochの�
 FramePermission,start_bit,uint64,scalar,bit,出力判断対象の先頭。,draft
 FramePermission,allow,boolean,scalar,-,trueなら当該完成フレームの送出を許可。falseなら当該フレームは破棄。,draft
 ResetControl,reset,boolean,scalar,-,trueの間は保持状態・出力有効を初期化し新規データを消費しない。,draft
-ResetControl,epoch,uint64,scalar,-,実行開始は0。新しい初期化区間で更新し、同じreset保持期間中は変えない。,draft
+ResetControl,epoch,uint64,scalar,-,実行開始は0。外部reset区間の開始または再捕捉要求ごとに更新し、reset保持中は維持。reset=falseでの更新は再捕捉。旧epochの未許可情報を破棄し、A-09bで受理済みの許可済み完成フレームだけ送出を継続する。,draft

@@ -69,7 +69,7 @@
       <p>2026-11-22 · 詳細機能導出済み（Draft）</p>
       <h2>作業環境</h2>
       <p>既存の <code>Satk_test_prj.prj</code> を使用する。Projectルートは <code>/Users/kaichiota/Documents/ChatGPT/SATK_test</code>。設計・モデル・試験をこの配下で管理する。</p>
-      <p>上位仕様は<a href="../../specs/algorithms/blind-bpsk/blind-bpsk-design-input.html">設計インプット v0.3</a>。ADC → DDC → 復調部の境界、32 bitプリアンブル＋256 bitデータのフレーム、極性補正済み10 kbit/s出力を内部設計への入力とする。</p>
+      <p>上位仕様は<a href="bpsk-demod-design-input.html">設計インプット v0.3</a>。ADC → DDC → 復調部の境界、32 bitプリアンブル＋256 bitデータのフレーム、極性補正済み10 kbit/s出力を内部設計への入力とする。</p>
       <h2>成果物形式・保存先</h2>
       <p>レビューしやすいHTMLと、MATLABからも扱えるCSVを基本とする。モデル化はSimulinkのSLX形式で行う。System ComposerやRequirements Toolboxの専用形式は現段階では必須にしない。</p>
       <div class="table">
@@ -83,31 +83,31 @@
           <tr>
             <td>設計インプット</td>
             <td>既存HTML</td>
-            <td>docs/specs/algorithms/blind-bpsk/blind-bpsk-design-input.html</td>
+            <td>docs/bpsk-demod/bpsk-demod-design-input.html</td>
             <td>既存v0.3を継続使用</td>
           </tr>
           <tr>
             <td>機能導出・アーキテクチャ</td>
             <td>HTML（図は埋込みSVG）</td>
-            <td>docs/architecture/bpsk-demod/bpsk-demod-architecture.html</td>
+            <td>docs/bpsk-demod/bpsk-demod-architecture.html</td>
             <td>機能階層・構成案A・内部インターフェースを定義済み（draft）</td>
           </tr>
           <tr>
             <td>機能一覧</td>
             <td>CSV</td>
-            <td>docs/architecture/bpsk-demod/bpsk-demod-functions.csv</td>
+            <td>docs/bpsk-demod/data/bpsk-demod-functions.csv</td>
             <td>F-01〜F-10導出済み（draft）</td>
           </tr>
           <tr>
             <td>内部インターフェース一覧</td>
             <td>CSV</td>
-            <td>docs/architecture/bpsk-demod/bpsk-demod-interfaces.csv</td>
+            <td>docs/bpsk-demod/data/bpsk-demod-interfaces.csv</td>
             <td>IF-01〜IF-21とフィールド定義を作成済み（draft）</td>
           </tr>
           <tr>
             <td>要求との対応表</td>
             <td>CSV</td>
-            <td>docs/architecture/bpsk-demod/bpsk-demod-traceability.csv</td>
+            <td>docs/bpsk-demod/data/bpsk-demod-traceability.csv</td>
             <td>R-01〜R-06と機能を対応付け済み（draft）</td>
           </tr>
           <tr>
