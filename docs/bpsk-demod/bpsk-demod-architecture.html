@@ -180,12 +180,24 @@
       .record-summary tbody tr:nth-child(even) td { background:#f7fafc; }
       .record-name { display:block; white-space:nowrap; font-weight:600; }
       .record-label { display:block; margin-top:3px; font-size:12px; font-weight:normal; color:#597080; }
+      .function-definitions {
+        table-layout:fixed;
+        min-width:900px;
+        line-height:1.7;
+      }
+      .function-definitions thead th:nth-child(1) { width:23%; }
+      .function-definitions thead th:nth-child(2) { width:29%; }
+      .function-definitions thead th:nth-child(3) { width:23%; }
+      .function-definitions thead th:nth-child(4) { width:25%; }
+      .function-definitions th, .function-definitions td { padding:14px; overflow-wrap:anywhere; }
+      .function-definitions tbody tr:nth-child(even) td { background:#f7fafc; }
+      .function-id { display:block; margin-bottom:4px; white-space:nowrap; color:#146b78; }
     </style>
   </head>
   <body>
     <header>
       <h1>BPSK復調部：設計仕様</h1>
-      <p>v0.9 · 2026-11-23 · 機能・構成案A・インターフェース</p>
+      <p>v0.10 · 2026-11-25 · 機能・構成案A・インターフェース</p>
       <p>本書は現在の設計内容を記載する。構成案の確定度・残課題・実装／検証状況は<a href="bpsk-demod-design-status.html">検討状況</a>を参照。</p>
     </header>
     <main>
@@ -203,8 +215,17 @@
 
       <section id="scope">
         <h2>1. 本仕様書の範囲と目的</h2>
+        <p>本書は工程1〜6（上位設計確認、機能導出、内部アーキテクチャ、動作仕様、内部インターフェース、デジタル表現）を扱う。工程7の各機能の実現方式・演算・係数は詳細設計で検討し、必要に応じて本書へ反映する。</p>
+        <div class="table">
+          <table>
+            <tr><th>確認対象</th><th>範囲・参照先</th></tr>
+            <tr><td>機能境界</td><td>ADC・DDCの後段にある復調部。前段処理と評価器は対象外。</td></tr>
+            <tr><td>外部入出力</td><td>複素IQ・resetを入力し、硬判定列・bit_valid・frame_startを出力。<a href="bpsk-demod-design-input.html#external-interface">上位インターフェース</a>を参照。</td></tr>
+            <tr><td>機能・性能要求</td><td><a href="bpsk-demod-design-input.html#requirements">R-01〜R-06</a>と<a href="bpsk-demod-design-input.html#evaluation">評価条件</a>を入力とする。</td></tr>
+          </table>
+        </div>
         <p><a href="bpsk-demod-design-status.html">検討状況・未決事項・検証記録</a></p>
-        <p><a href="bpsk-demod-requirements.html">上位仕様 v0.3</a>を満たすために必要な能力をF-01〜F-10として定義する。機能の目的、必要な情報、成立させる振る舞い、検証観点を整理し、第2章では方式に依存しない機能を定義し、第3〜5章では構成案Aのアーキテクチャ、動作仕様、インターフェースを定義する。第6章ではこれらをモデルとして表現する方法を規定する。</p>
+        <p><a href="bpsk-demod-design-input.html">上位仕様 v0.3</a>を満たすために必要な能力をF-01〜F-10として定義する。機能の目的、必要な情報、成立させる振る舞い、検証観点を整理し、第2章では方式に依存しない機能を定義し、第3〜5章では構成案Aのアーキテクチャ、動作仕様、インターフェースを定義する。第6章ではこれらをモデルとして表現する方法を規定する。</p>
         <p>外部境界は、DDCからの80 ksample/s複素IQとresetを入力し、プリアンブルを含む極性補正済み10 kbit/sの硬判定列、bit_valid、frame_startを出力する範囲。ADC・DDC・送信源・チャネル・真値を使う評価器・後段のデータ抽出は対象外。</p>
         <div class="note">
           F番号は機能の識別子であり、実行順序ではない。各機能を別ブロックで実装することも要求しない。上位仕様に既にあるRRC整合処理、32 bitプリアンブル、288 bitフレーム、極性補正、受信データ保持は維持する。
@@ -294,167 +315,81 @@
         </div>
 
         <h3 id="function-list">2.2 詳細機能一覧</h3>
-        <p>正本は<a href="data/bpsk-demod-functions.csv">機能CSV</a>。入力・出力欄は論理的に必要な情報を示し、ポートやデータ型を確定するものではない。「状態・reset」は必要な振る舞いを示し、内部変数や状態機械を指定しない。</p>
-        <article id="F-01">
-          <h4>F-01　IQ入力・連続性管理</h4>
-          <p>DDCのIQを受け取り、受信順序と連続した信号としての対応を維持する。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-02;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>80 ksample/s複素IQ;外部reset</dd>
-            <dt>得られる情報</dt>
-            <dd>受信IQ;信号の順序・時間に関する情報</dd>
-            <dt>状態・reset</dt>
-            <dd>受信順序に必要な情報を維持する。reset前後の信号を混同しない。</dd>
-            <dt>検証観点</dt>
-            <dd>受信順序が保たれ、重複・欠落・reset前のデータ混入がないことを確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-02">
-          <h4>F-02　受信波形の整形</h4>
-          <p>送信RRCに対応した整合フィルタ処理により、判定に適した受信波形を得る。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-04;R-05;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>受信信号;上位仕様の送信パルス条件</dd>
-            <dt>得られる情報</dt>
-            <dd>整形された受信信号</dd>
-            <dt>状態・reset</dt>
-            <dd>過渡応答と有効性の関係を扱う。resetにより以前の受信履歴の影響を解消する。</dd>
-            <dt>検証観点</dt>
-            <dd>送信パルスとの整合と、無雑音復元・AWGN下BERへの寄与を確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-03">
-          <h4>F-03　搬送波周波数・位相同期</h4>
-          <p>残留周波数ずれと搬送波位相の影響を抑え、BPSK判定を可能にする。0/πの極性解消はF-08が担う。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-03;R-04;R-05;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>受信信号;公称レートなどの既知条件</dd>
-            <dt>得られる情報</dt>
-            <dd>搬送波ずれを扱った信号または判定に必要な情報;同期の成立に関する情報</dd>
-            <dt>状態・reset</dt>
-            <dd>reset後に搬送波同期を取得し直せること。</dd>
-            <dt>検証観点</dt>
-            <dd>±100 Hzと未知初期位相で復調できることを統合評価する。0/πはフレーム処理と合わせて確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-04">
-          <h4>F-04　シンボルタイミング同期・抽出</h4>
-          <p>未知のシンボル位相を扱い、公称10 ksymbol/sのシンボルに対応する判定対象を得る。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-02;R-03;R-04;R-05;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>受信信号;公称シンボルレート</dd>
-            <dt>得られる情報</dt>
-            <dd>シンボルに対応する信号または判定タイミング情報;同期の成立に関する情報</dd>
-            <dt>状態・reset</dt>
-            <dd>reset後にタイミングを取得し直せること。</dd>
-            <dt>検証観点</dt>
-            <dd>未知の初期タイミングで復調でき、シンボルの重複・欠落がないことを確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-05">
-          <h4>F-05　BPSK硬判定</h4>
-          <p>受信信号を送信側のBPSKビット割当てに対応する0/1の判定結果に変換する。極性曖昧性の解消は別責務とする。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-01;R-02;R-04;R-05</dd>
-            <dt>必要な入力情報</dt>
-            <dd>BPSK判定に必要な受信信号と同期情報</dd>
-            <dt>得られる情報</dt>
-            <dd>受信bitの判定結果とその位置・有効性に関する情報</dd>
-            <dt>状態・reset</dt>
-            <dd>reset前の判定結果を有効出力へ混入させない。</dd>
-            <dt>検証観点</dt>
-            <dd>送信側の0/1割当てに対応した判定と、極性補正後の無雑音復元・AWGN下BERを確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-06">
-          <h4>F-06　プリアンブル識別</h4>
-          <p>既知32 bitプリアンブルの正規・反転パターンを識別し、フレーム位置と極性を判断する根拠を得る。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-01;R-02;R-04;R-05;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>受信データ;既知プリアンブル;受信位置に関する情報</dd>
-            <dt>得られる情報</dt>
-            <dd>プリアンブル位置候補;極性候補;識別の信頼性に関する情報</dd>
-            <dt>状態・reset</dt>
-            <dd>reset前の識別結果を再利用しない。</dd>
-            <dt>検証観点</dt>
-            <dd>正規・反転・誤り入りのプリアンブル、データ内の同一列について識別と誤検出・未検出を確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-07">
-          <h4>F-07　フレーム同期・位置管理</h4>
-          <p>プリアンブル情報と288 bitのフレーム形式から、受信データのフレーム内位置を識別・維持する。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-01;R-02;R-04;R-05;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>プリアンブル位置候補;フレーム長;受信位置・有効性に関する情報</dd>
-            <dt>得られる情報</dt>
-            <dd>フレーム先頭・フレーム内位置;採用したプリアンブル情報;フレーム同期の成立に関する情報</dd>
-            <dt>状態・reset</dt>
-            <dd>reset後はフレーム位置を取得し直す。</dd>
-            <dt>検証観点</dt>
-            <dd>フレーム位置と288 bit周期の対応、誤候補、未検出、再取得を確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-08">
-          <h4>F-08　ビット極性の解消</h4>
-          <p>既知プリアンブルに基づき、対象フレームの受信bitの極性を送信側の割当てに合わせる。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-01;R-02;R-04;R-05</dd>
-            <dt>必要な入力情報</dt>
-            <dd>受信データ;プリアンブルから得た極性情報;対応するフレーム情報</dd>
-            <dt>得られる情報</dt>
-            <dd>対象フレームの極性補正結果</dd>
-            <dt>状態・reset</dt>
-            <dd>極性情報と対象フレームの対応を維持する。reset後は極性を再確定する。</dd>
-            <dt>検証観点</dt>
-            <dd>0/πの双方で送信列と一致すること、プリアンブルを既知値で置換しないこと、途中のスリップを評価器で隠さないことを確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-09">
-          <h4>F-09　データ保持・出力整列</h4>
-          <p>プリアンブルを含む受信データを出力まで保持し、補正済みbit・有効信号・フレーム先頭信号を対応付けて出力する。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-01;R-02;R-04;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>受信データと極性補正結果;フレーム位置;有効性に関する情報</dd>
-            <dt>得られる情報</dt>
-            <dd>プリアンブル込み10 kbit/sの硬判定出力;bit_valid;frame_start</dd>
-            <dt>状態・reset</dt>
-            <dd>出力順序と対象フレームの対応を維持し、resetで以前のデータを無効化する。</dd>
-            <dt>検証観点</dt>
-            <dd>受信プリアンブルを含む順序、公称レート、先頭bitとframe_startの一致、重複・欠落なしを確認する。</dd>
-          </dl>
-        </article>
-        <article id="F-10">
-          <h4>F-10　有効性管理・初期化</h4>
-          <p>同期と極性の確定状況に応じた出力有効性、およびreset後の整合した再取得を成立させる。</p>
-          <dl>
-            <dt>上位要求</dt>
-            <dd>R-01;R-02;R-03;R-06</dd>
-            <dt>必要な入力情報</dt>
-            <dd>同期・フレーム位置・極性の成立に関する情報;外部reset</dd>
-            <dt>得られる情報</dt>
-            <dd>出力有効性の判断;各機能の初期化・再取得に必要な条件</dd>
-            <dt>状態・reset</dt>
-            <dd>未確立の出力を有効にしない。reset後に古い状態を持ち越さない。</dd>
-            <dt>検証観点</dt>
-            <dd>起動・reset・同期喪失・再取得において有効性と初期化の整合を確認する。</dd>
-          </dl>
-        </article>
+        <p>各機能の責務と入出力情報を要約する。入出力は論理情報であり、ポートや型を指定しない。上位要求との対応は2.3節、状態・reset・検証観点を含む詳細は<a href="data/bpsk-demod-functions.csv">機能CSV（正本）</a>を参照。</p>
+        <div class="table">
+          <table class="function-definitions">
+            <thead>
+              <tr>
+                <th scope="col">機能</th>
+                <th scope="col">責務</th>
+                <th scope="col">入力情報</th>
+                <th scope="col">出力情報</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="F-01">
+                <th scope="row"><span class="function-id">F-01</span>IQ入力・連続性管理</th>
+                <td>DDCのIQを受け取り、受信順序を維持する。</td>
+                <td>80 ksample/s複素IQ・reset</td>
+                <td>受信IQ・順序情報</td>
+              </tr>
+              <tr id="F-02">
+                <th scope="row"><span class="function-id">F-02</span>受信波形の整形</th>
+                <td>送信RRCに対応して波形を整える。</td>
+                <td>受信信号・送信パルス条件</td>
+                <td>整形された受信信号</td>
+              </tr>
+              <tr id="F-03">
+                <th scope="row"><span class="function-id">F-03</span>搬送波周波数・位相同期</th>
+                <td>周波数ずれと位相の影響を抑える。0/πの極性解消はF-08が担う。</td>
+                <td>受信信号・公称レート</td>
+                <td>搬送波補償に関する情報・同期状態</td>
+              </tr>
+              <tr id="F-04">
+                <th scope="row"><span class="function-id">F-04</span>シンボルタイミング同期・抽出</th>
+                <td>未知のタイミングから、公称10 ksymbol/sの判定対象を得る。</td>
+                <td>受信信号・公称シンボルレート</td>
+                <td>シンボル信号または判定時刻・同期状態</td>
+              </tr>
+              <tr id="F-05">
+                <th scope="row"><span class="function-id">F-05</span>BPSK硬判定</th>
+                <td>送信側の割当てに対応する0/1を判定する。</td>
+                <td>受信信号・同期情報</td>
+                <td>硬判定bit・位置・有効性</td>
+              </tr>
+              <tr id="F-06">
+                <th scope="row"><span class="function-id">F-06</span>プリアンブル識別</th>
+                <td>既知32 bitの正規・反転パターンを識別する。</td>
+                <td>受信データ・既知プリアンブル・位置</td>
+                <td>位置候補・極性候補・信頼性</td>
+              </tr>
+              <tr id="F-07">
+                <th scope="row"><span class="function-id">F-07</span>フレーム同期・位置管理</th>
+                <td>プリアンブルと288 bit周期からフレーム位置を維持する。</td>
+                <td>プリアンブル候補・フレーム長・位置／有効性</td>
+                <td>フレーム位置・採用候補・同期状態</td>
+              </tr>
+              <tr id="F-08">
+                <th scope="row"><span class="function-id">F-08</span>ビット極性の解消</th>
+                <td>プリアンブルに基づき対象フレームの極性を補正する。</td>
+                <td>受信データ・極性情報・対象フレーム</td>
+                <td>極性補正結果</td>
+              </tr>
+              <tr id="F-09">
+                <th scope="row"><span class="function-id">F-09</span>データ保持・出力整列</th>
+                <td>受信プリアンブルを含めて保持し、bit・有効・先頭を揃えて出力する。</td>
+                <td>受信データ・補正結果・フレーム位置・有効性</td>
+                <td>公称10 kbit/s硬判定列・bit_valid・frame_start</td>
+              </tr>
+              <tr id="F-10">
+                <th scope="row"><span class="function-id">F-10</span>有効性管理・初期化</th>
+                <td>同期・位置・極性に基づく出力有効性と、reset後の再取得を成立させる。</td>
+                <td>各成立情報・外部reset</td>
+                <td>出力有効性・初期化／再取得条件</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <h3 id="traceability">2.3 上位要求とのトレーサビリティ</h3>
         <p>行に上位要求、列に詳細機能を示す。●は対応あり、—は対応付けなしを表す。対応の正本は<a href="data/bpsk-demod-traceability.csv">要求対応表CSV</a>。●は要求達成や検証合格を意味しない。</p>
         <div class="table">
@@ -476,7 +411,7 @@
             </thead>
             <tbody>
               <tr>
-                <th scope="row"><a href="bpsk-demod-requirements.html#R-01">R-01</a><br>フレーム形式に従った復調、プリアンブル識別、先頭位置と極性の把握。</th>
+                <th scope="row"><a href="bpsk-demod-design-input.html#R-01">R-01</a><br>フレーム形式に従った復調、プリアンブル識別、先頭位置と極性の把握。</th>
                 <td>—</td>
                 <td>—</td>
                 <td>—</td>
@@ -489,7 +424,7 @@
                 <td>●</td>
               </tr>
               <tr>
-                <th scope="row"><a href="bpsk-demod-requirements.html#R-02">R-02</a><br>受信IQから公称レートのbit列を得て、先頭・有効信号と整合させる。</th>
+                <th scope="row"><a href="bpsk-demod-design-input.html#R-02">R-02</a><br>受信IQから公称レートのbit列を得て、先頭・有効信号と整合させる。</th>
                 <td>●</td>
                 <td>—</td>
                 <td>—</td>
@@ -502,7 +437,7 @@
                 <td>●</td>
               </tr>
               <tr>
-                <th scope="row"><a href="bpsk-demod-requirements.html#R-03">R-03</a><br>未知の搬送波位相・シンボルタイミングと残留周波数ずれを扱う。</th>
+                <th scope="row"><a href="bpsk-demod-design-input.html#R-03">R-03</a><br>未知の搬送波位相・シンボルタイミングと残留周波数ずれを扱う。</th>
                 <td>—</td>
                 <td>—</td>
                 <td>●</td>
@@ -515,7 +450,7 @@
                 <td>●</td>
               </tr>
               <tr>
-                <th scope="row"><a href="bpsk-demod-requirements.html#R-04">R-04</a><br>無雑音での正しい判定・極性解消・出力順序の維持。</th>
+                <th scope="row"><a href="bpsk-demod-design-input.html#R-04">R-04</a><br>無雑音での正しい判定・極性解消・出力順序の維持。</th>
                 <td>—</td>
                 <td>●</td>
                 <td>●</td>
@@ -528,7 +463,7 @@
                 <td>—</td>
               </tr>
               <tr>
-                <th scope="row"><a href="bpsk-demod-requirements.html#R-05">R-05</a><br>波形整形、同期、判定、フレーム識別を含む雑音下の性能。</th>
+                <th scope="row"><a href="bpsk-demod-design-input.html#R-05">R-05</a><br>波形整形、同期、判定、フレーム識別を含む雑音下の性能。</th>
                 <td>—</td>
                 <td>●</td>
                 <td>●</td>
@@ -541,7 +476,7 @@
                 <td>—</td>
               </tr>
               <tr>
-                <th scope="row"><a href="bpsk-demod-requirements.html#R-06">R-06</a><br>以前の状態を引き継がない再取得と、共通条件での実装間比較。</th>
+                <th scope="row"><a href="bpsk-demod-design-input.html#R-06">R-06</a><br>以前の状態を引き継がない再取得と、共通条件での実装間比較。</th>
                 <td>●</td>
                 <td>●</td>
                 <td>●</td>
@@ -733,7 +668,7 @@
         <h2>3. 内部アーキテクチャ</h2>
         <p>2.1節の機能階層を具体的な処理へ割り当てた構成案Aを示す。方式に依存しない機能定義と、処理順序・方式・保持方針を持つ実現案を分けて記載する。</p>
         <div class="note">
-          第2章は方式に依存しない機能定義。本章では、その機能を実現するための処理順序・方式・保持方針を仮置きする。機能CSVは引き続き機能の正本とし、本案の割当ては本章を正本とする。
+          第2章は方式に依存しない機能定義。本章では構成案Aの処理分担・接続・保持方針を定義する。これらは本案の設計方針であり、詳細設計の評価結果に応じて見直す。各処理の内部方式は工程7で検討する。機能CSVは引き続き機能の正本とし、本案の割当ては本章を正本とする。
         </div>
         <h3>3.1 全体の考え方</h3>
         <p>機能CSVを機能の正本、本章を構成案Aの割当ての正本とする。</p>
@@ -770,7 +705,7 @@
         <p class="note"><strong>本案の順序：</strong>搬送波周波数の粗補償 → シンボル時刻の同期 → 残留搬送波周波数と搬送波位相の同期 → 硬判定 → プリアンブルによる0/π曖昧性の解消。シンボル同期前に搬送波位相まで合わせる構成ではない。</p>
         <h3>3.2 機能系統図（構成案A）</h3>
         <div class="table">
-          <svg aria-label="構成案A。入力、振幅正規化、粗周波数補償、RRC、Gardner同期、搬送波微細同期、硬判定。判定列をプリアンブル検出とフレーム保持に分岐し、フレーム確定後に極性補正して出力。" role="img" viewbox="0 0 1180 1030" xmlns="http://www.w3.org/2000/svg">
+          <svg aria-label="構成案A。入力、振幅正規化、粗周波数補償、RRC、タイミング同期、搬送波微細同期、硬判定。判定列をプリアンブル検出とフレーム保持に分岐し、フレーム確定後に極性補正して出力。" role="img" viewbox="0 0 1180 1030" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <marker id="proposal-data" markerheight="8" markerwidth="8" orient="auto" refx="7" refy="4">
                 <path d="M0 0L8 4L0 8Z" fill="#258c91"></path>
@@ -806,7 +741,7 @@
             <g id="proposal-A-04">
               <rect fill="#eff5f8" height="100" rx="7" stroke="#8cacbd" width="200" x="740" y="245"></rect>
               <text fill="#146b78" font-size="16" text-anchor="middle" x="840.0" y="269">A-04</text>
-              <text fill="#203448" font-size="16" text-anchor="middle" x="840.0" y="296">Gardnerタイミング同期</text>
+              <text fill="#203448" font-size="16" text-anchor="middle" x="840.0" y="296">シンボルタイミング同期</text>
               <text fill="#203448" font-size="16" text-anchor="middle" x="840.0" y="317">F-04</text>
             </g>
             <g id="proposal-A-03b">
@@ -913,7 +848,7 @@
             </tr>
             <tr>
               <td>A-03a／F-03<br/>搬送波周波数の粗補償</td>
-              <td><strong>対象は搬送波の周波数ずれ。搬送波位相の整合はここでは行わない。</strong>オーバーサンプリングIQの二乗に基づく粗周波数推定と回転補償を置く。初期取得時に推定し、追従中は値を保持して微細同期へ引き継ぐ。周波数補償に伴って信号を回転させても、未知の初期位相を確定したことにはならない。</td>
+              <td><strong>対象は搬送波の周波数ずれ。搬送波位相の整合はここでは行わない。</strong>オーバーサンプリングIQに対する粗周波数推定と周波数補償を行う。推定方式は詳細設計で決定する。初期取得時に推定し、追従中は値を保持して微細同期へ引き継ぐ。周波数補償に伴って信号を回転させても、未知の初期位相を確定したことにはならない。</td>
             </tr>
             <tr>
               <td>A-02b／F-02</td>
@@ -921,27 +856,27 @@
             </tr>
             <tr>
               <td>A-04／F-04</td>
-              <td>Gardner方式でタイミングを回復し、公称10 ksymbol/sの複素シンボルを出す。</td>
+              <td>シンボルタイミングを回復し、公称10 ksymbol/sの複素シンボルを出す。同期・補間方式は詳細設計で決定する。</td>
             </tr>
             <tr>
               <td>A-03b／F-03<br/>残留周波数・搬送波位相同期</td>
-              <td><strong>対象は粗補償後に残る搬送波周波数ずれと、搬送波位相の両方。</strong>シンボル同期後のシンボルレート信号にBPSKのCostas型ループを適用し、残留周波数を追従しながら位相を判定軸に合わせる。位相はπを法として整合し、0/πの曖昧性は残す。</td>
+              <td><strong>対象は粗補償後に残る搬送波周波数ずれと、搬送波位相の両方。</strong>シンボル同期後の信号に対して残留周波数と搬送波位相を追従・補償する。内部方式は詳細設計で決定する。位相はπを法として整合し、0/πの曖昧性は残す。</td>
             </tr>
             <tr>
               <td>A-05／F-05</td>
-              <td>補償済みシンボルの実部の符号で硬判定する。正側を0、負側を1とする。</td>
+              <td>補償済みシンボルを送信側のBPSK割当て（0 → +1、1 → −1）に対応する0/1へ判定する。判定式は詳細設計で決定する。</td>
             </tr>
             <tr>
               <td>A-06／F-06</td>
-              <td>硬判定列の32 bit窓で、正規・反転プリアンブルとの不一致数を評価する。</td>
+              <td>硬判定列の32 bit窓から正規・反転プリアンブルを識別し、位置・極性候補を通知する。照合の判定基準は詳細設計で決定する。</td>
             </tr>
             <tr>
               <td>A-07／F-07</td>
-              <td>取得時は288 bit間隔の2回の検出でフレーム位置を確認する。追従時は期待位置のプリアンブルを確認し、フレームごとに極性情報を付ける。</td>
+              <td>取得時は288 bit周期でのプリアンブル検出の継続性からフレーム位置を確認する。必要な確認回数は詳細設計で決定する。追従時は期待位置のプリアンブルを確認し、フレームごとに極性情報を付ける。</td>
             </tr>
             <tr>
               <td>A-09a／F-09</td>
-              <td>硬判定列を保持し、先頭が確定した288 bitを1フレームとして取り出す。取得確認に使った最初のフレームは出さず、2回目の検出位置から始まるフレームを最初の出力候補とする。</td>
+              <td>硬判定列を保持し、先頭が確定した288 bitを1フレームとして取り出す。フレーム位置・極性が確定し、必要な受信データが揃ったフレームから出力候補とする。</td>
             </tr>
             <tr>
               <td>A-08／F-08</td>
@@ -949,7 +884,7 @@
             </tr>
             <tr>
               <td>A-09b／F-09</td>
-              <td>完成した有効フレームをプリアンブル先頭から10 kbit/s相当で出力する。受信と送出を重ねるため、保持領域は少なくとも2フレーム相当を想定する。</td>
+              <td>完成した有効フレームをプリアンブル先頭から10 kbit/s相当で出力する。フレーム受信と出力を並行して行える保持機能を設ける。容量は詳細設計で決定する。</td>
             </tr>
             <tr>
               <td>A-10／F-10</td>
@@ -1006,10 +941,10 @@
           <text x="560" y="941" text-anchor="middle" font-size="16" fill="#203448">候補プリアンブル検出</text>
           <rect x="330" y="970" width="460" height="100" rx="13" fill="#edf6f6" stroke="#36576b"/><path d="M330 1006H790" stroke="#36576b"/>
           <text x="560.0" y="995" text-anchor="middle" font-size="19" fill="#203448">R5：フレーム位置の確認</text>
-          <text x="560.0" y="1032" text-anchor="middle" font-size="17" fill="#203448">A-07：288 bit後の2回目検出を確認</text>
+          <text x="560.0" y="1032" text-anchor="middle" font-size="17" fill="#203448">A-07：288 bit周期の検出継続性を確認</text>
           <text x="560.0" y="1055" text-anchor="middle" font-size="17" fill="#203448">候補の周期性からフレーム位置を確定</text>
           <path d="M560 1070V1135" fill="none" stroke="#36576b" stroke-width="2" marker-end="url(#acquisition-state-arrow)"/>
-          <text x="560" y="1106" text-anchor="middle" font-size="16" fill="#203448">[288 bit間隔で2回目を確認]</text>
+          <text x="560" y="1106" text-anchor="middle" font-size="16" fill="#203448">[フレーム位置の確認条件が成立]</text>
           <rect x="330" y="1135" width="460" height="100" rx="13" fill="#edf6f6" stroke="#36576b"/><path d="M330 1171H790" stroke="#36576b"/>
           <text x="560.0" y="1160" text-anchor="middle" font-size="19" fill="#203448">R6：フレーム同期追従</text>
           <text x="560.0" y="1197" text-anchor="middle" font-size="17" fill="#203448">288 bit周期のプリアンブルを確認</text>
@@ -1044,7 +979,7 @@
         <div class="table">
           <table>
             <tr><th>操作</th><th>受信処理・候補データ</th><th>出力待ち・送出中のフレーム</th></tr>
-            <tr><td>再捕捉<br/>reset=false、epoch更新</td><td>R1へ戻り、粗周波数推定から取得し直す。A-01〜A-08およびA-09aの受信履歴・同期判定・未確定候補を初期化し、位置番号を0から再開する。A-10は旧epochの未許可情報を破棄する。</td><td>A-09bが既に同じキーの補正データ・記述子・許可を揃えて受理した完成フレームは、旧epochのキーを保持して送出を継続する。それ以外の旧epoch情報は破棄する。</td></tr>
+            <tr><td>再捕捉<br/>reset=false、epoch更新</td><td>本案ではR1へ戻り、粗周波数推定から取得し直す。A-01〜A-08およびA-09aの受信履歴・同期判定・未確定候補を初期化し、位置番号を0から再開する。A-10は旧epochの未許可情報を破棄する。</td><td>A-09bが既に同じキーの補正データ・記述子・許可を揃えて受理した完成フレームは、旧epochのキーを保持して送出を継続する。それ以外の旧epoch情報は破棄する。</td></tr>
             <tr><td>外部reset<br/>reset=true（最優先）</td><td>全処理と保持情報を初期化する。新しいreset区間の開始時にepochを更新し、保持中は更新しない。解除後にR1から再開する。</td><td>許可済みを含めて破棄し、bits=0、bit_valid=false、frame_start=falseとする。</td></tr>
           </table>
         </div>
@@ -1055,15 +990,15 @@
         <p>構成案Aの接続信号を、データと付随情報をまとめたレコードとして定義する。モデルへの表現方法は<a href="#static-model">第6章</a>に示す。</p>
         <h3>5.1 共通ルール</h3>
         <ul>
-          <li><strong>型：</strong>IQ・シンボルはcomplex double、bitはuint8（0/1）、フラグはboolean、位置・epochはuint64とする。初回参照設計の型であり、実機型は別途検討する。</li>
+          <li><strong>情報の種類：</strong>IQ・シンボルは複素値、bitは0/1、フラグは真偽値、位置・epochは非負整数とする。モデル化用の数値型は第6章に示す。</li>
           <li><strong>有効性：</strong>validは新しいレコードの存在を示し、同期成立とは区別する。valid=falseのデータは処理せず、bit位置も進めない。有効なレコードは受信順に一度だけ処理する。</li>
           <li><strong>位置：</strong>sample_indexは入力サンプル位置、symbol_indexは候補シンボル位置（ともに0始まり）。bit_indexはsymbol_indexを継承する。同期未成立の候補も数え、処理遅延による位置の書換えや単純な8分の1換算は行わない。</li>
           <li><strong>対応付け：</strong>epochは初期化区間を識別する。フレームのデータ・極性・出力許可は、同じキー（epoch, start_bit）で照合する。start_bitはプリアンブル先頭のbit位置。</li>
-          <li><strong>reset：</strong>データ処理より優先し、保持中は新規データを処理しない。epochは実行開始時0とし、外部reset区間の開始または再捕捉要求時に更新する。reset保持中は更新しない。再捕捉時の許可済みフレームの扱いは4.2節に従う。</li>
+          <li><strong>reset：</strong>データ処理より優先し、保持中は新規データを処理しない。epochは実行開始時0とし、外部reset区間の開始または再捕捉要求時に更新する。reset保持中は更新しない。再捕捉時の受理済みフレームの扱いは4.2節に従う。</li>
         </ul>
         <h3>5.2 接続と論理型</h3>
         <p>本節は信号の接続先と型を示す。「信号名／論理型」列の下段に記載したレコードの内容は、5.3節を参照。</p>
-        <p>接続元・接続先は構成案AのA番号で示し、端子名をその下に記載する。分岐先は改行して表示する。正式なモデルパスは<a href="data/bpsk-demod-interfaces.csv">接続一覧CSV（正本）</a>を参照。</p>
+        <p>接続元・接続先は構成案AのA番号で示し、端子名をその下に記載する。分岐先は改行して表示する。表中の具体的な数値型は第6章のモデル化用設定を併記したもの。正式なモデルパスは<a href="data/bpsk-demod-interfaces.csv">接続一覧CSV（正本）</a>を参照。</p>
         <div class="table">
           <table class="interface-connections">
             <thead>
@@ -1307,7 +1242,7 @@
           <li><strong>受信完了：</strong>A-09aで288 bitを欠落・重複なく収集し、全bitの同期状態を集約する。</li>
           <li><strong>極性補正：</strong>A-08で確定済みのFrameDescriptorに従って補正する。受信プリアンブルも同じ規則で補正し、既知値に置換しない。</li>
           <li><strong>出力許可：</strong>A-10で<code>complete AND sync_ok_all AND confirmed AND polarity_valid</code>を判定する。現在の同期状態で、対象フレームの受信結果を代用しない。</li>
-          <li><strong>送出：</strong>A-09bでCorrectedFrame・FrameDescriptor・FramePermissionを照合する。許可時はbit_validを立て、先頭bitでframe_startを立てる。不許可なら破棄する。許可済みフレームは後続の同期喪失では中断せず、外部resetで無効化する。</li>
+          <li><strong>送出：</strong>A-09bでCorrectedFrame・FrameDescriptor・FramePermissionを照合する。許可時はbit_validを立て、先頭bitでframe_startを立てる。不許可なら破棄する。A-09bで補正データ・記述子・許可を揃えて受理済みの完成フレームは、後続の同期喪失・再捕捉では中断せず、外部resetで無効化する。再捕捉時点で未受理の旧epoch情報は破棄する。</li>
         </ul>
       </section>
       <section id="static-model">
@@ -1368,6 +1303,7 @@
           </table>
         </div>
         <h3 id="dictionary">6.1 データディクショナリへの表現</h3>
+        <p>初回のデジタル表現では、IQ・シンボルをcomplex double、bitをuint8（0/1）、フラグをboolean、位置・epochをuint64とする。これらはモデル化用の初期設定であり、固定小数点や実機の型を確定するものではない。CSV・JSON・辞書の型定義もこの位置付けとする。</p>
         <p><code>config/bpsk_demod_interfaces.sldd</code>にSimulink.Bus／BusElementを格納し、モデルの各端子から型を参照する。第5章で参照するフィールド一覧CSVのフィールド名、型、次元、実数／複素数、意味を辞書へ対応付ける。SLXとSLDDをセットで管理する。</p>
         <p>フィールド一覧CSVを正本としてMATLABで辞書を生成し、CSV・辞書・端子設定の整合を確認できるようにする。意味上の単位（sample／bit等）はDescriptionに記載し、物理単位や実行周期と区別する。有効条件やフレーム対応付け等の動作契約は説明として保持し、型定義だけで動作検証されたものと扱わない。</p>
       </section>

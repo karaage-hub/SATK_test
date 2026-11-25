@@ -30,8 +30,7 @@ ADC（200 kHz実数IF、1 MS/s、12 bit）とDDCの後段に置く復調部を�
 
 | 文書 | 内容 |
 | --- | --- |
-| [上位要求一覧](docs/bpsk-demod/bpsk-demod-requirements.html) | R-01〜R-06と共通条件 |
-| [設計インプット](docs/bpsk-demod/bpsk-demod-design-input.html) | 上位仕様の詳細 |
+| [上位設計インプット](docs/bpsk-demod/bpsk-demod-design-input.html) | システム構成・設計条件・上位要求R-01〜R-06 |
 | [設計仕様書](docs/bpsk-demod/bpsk-demod-architecture.html) | 範囲と目的、詳細機能、内部アーキテクチャ、動作仕様、インターフェース、モデル化仕様 |
 | [検討状況・検証記録](docs/bpsk-demod/bpsk-demod-design-status.html) | 未決事項と確認済みの範囲 |
 | [成果物形式・配置方針](docs/bpsk-demod/bpsk-demod-deliverables.html) | 成果物の形式と保存先 |
